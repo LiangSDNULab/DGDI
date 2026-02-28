@@ -12,9 +12,6 @@ from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csr_matrix
 import networkx as nx
 
-############################################
-# Spatial kNN Graph
-############################################
 def build_spatial_knn(adata, k=10):
 
     if 'spatial' not in adata.obsm:
@@ -36,9 +33,6 @@ def build_spatial_knn(adata, k=10):
     return csr_matrix(A)
 
 
-############################################
-# DGDI Graph（匹配平均degree）
-############################################
 def build_dgdi_graph(S, target_degree):
 
     S = (S - S.min()) / (S.max() - S.min() + 1e-8)
@@ -60,9 +54,6 @@ def build_dgdi_graph(S, target_degree):
     return csr_matrix(A)
 
 
-############################################
-# 图结构统计
-############################################
 def graph_statistics(A1, A2):
 
     G1 = nx.from_scipy_sparse_array(A1)
@@ -154,61 +145,23 @@ if __name__ == '__main__':
             S_cpu = S.cpu().detach().numpy()
             pred, _ = post_proC(S_cpu, opt.args.n_cluster)
 
-            # # 将预测的聚类结果添加到AnnData对象中
-            # data.obs['clusters'] = pd.Categorical(pred)  # 添加聚类结果作为分类变量
-
-            # 可选：如果有评估结果，也可以添加到uns字段中
             if label is not None:
-                metrics = eval(label, pred)  # 假设eval函数返回一个包含评估指标的字典
+                metrics = eval(label, pred)  
                 # data.uns['clustering_metrics'] = metrics
-
-            # # 保存AnnData对象到h5ad文件
-            # output_path = '/home/lcheng/FengyiZhou/Comparison/DUSTED/results/Mouse_Brain_E18_clustered_data.h5ad'
-            # data.write_h5ad(output_path)
-            # print(f"聚类结果已保存到 {output_path}")
-
-            # # 以下可视化部分如果需要也可以根据多视图情况进行调整
-            # adata = a_omics.copy()
-            # adata.obsm['PRED'] = np.array(pred).reshape(-1, 1)
-            # adata.obs['PRED'] = pred
-            # # 将 PRAGA 转换为分类类型
-            # adata.obs['PRED'] = adata.obs['PRED'].astype('category')
-            # label = adata.obs['PRED']
-            #
-            # import matplotlib.pyplot as plt
-            #
-            # save_path = "/home/lcheng/FengyiZhou/SpaMICS-main/results/"
-            #
-            # sc.settings.figdir = save_path
-            #
-            # sc.pl.spatial(adata,
-            #               img_key="hires",
-            #               size=1.2,
-            #               color=["PRED"],
-            #               show=True,
-            #               save="Human_breast_cancer_cycle.png")
-
-            ############################################
-            # Dynamic Graph Validation
-            ############################################
             print("===== Dynamic Graph Comparison =====")
 
             # Spatial graph
             A_spatial = build_spatial_knn(data, k=10)
             avg_degree = np.array(A_spatial.sum(axis=1)).mean()
 
-            # DGDI graph（匹配degree）
             A_dgdi = build_dgdi_graph(S_cpu, target_degree=int(avg_degree))
 
-            # 打印统计结果（论文可用）
             graph_statistics(A_spatial, A_dgdi)
 
             print("===== Exporting Expression + Clusters =====")
 
-            # 1️⃣ 预测 cluster
             pred_str = pred.astype(str)
 
-            # 2️⃣ 表达矩阵
             if hasattr(raw_data.X, "toarray"):
                 expr = raw_data.X.toarray()
             else:
@@ -220,21 +173,18 @@ if __name__ == '__main__':
                 columns=raw_data.var_names
             )
 
-            # 3️⃣ metadata
             meta_df = pd.DataFrame(
                 {"clusters": pred_str},
                 index=raw_data.obs_names
             )
 
-            # 4️⃣ 保存 Spatial 版本
             expr_df.to_csv("./results/MBE15/spatial_expression_matrix.csv")
             meta_df.to_csv("./results/MBE15/spatial_metadata.csv")
 
-            # 5️⃣ 保存 DGDI 版本（cluster相同，仅图不同）
             expr_df.to_csv("./results/MBE15/dgdi_expression_matrix.csv")
             meta_df.to_csv("./results/MBE15/dgdi_metadata.csv")
 
-            print("✅ CSV files saved for Seurat.")
+            print("CSV files saved for Seurat.")
 
 
 
