@@ -161,19 +161,16 @@ class AllModel(nn.Module):
         H_omics1 = self.fusion_1(z_omics1_feature, z_omics1_spatial, adj_feature_omics1, adj_spatial_omics1, omics_1)
         H_omics2 = self.fusion_2(z_omics2_feature, z_omics2_spatial, adj_feature_omics2, adj_spatial_omics2, omics_2)
 
-        # 在第三维拼接（深度拼接）
-        CH_omics = torch.stack((H_omics1, H_omics2), dim=2)  # 形状: [batch, num_features, 2]
-        CH_omics = CH_omics.permute(0, 2, 1)  # 调整维度顺序为 [batch, 2, num_features]
+        CH_omics = torch.stack((H_omics1, H_omics2), dim=2) 
+        CH_omics = CH_omics.permute(0, 2, 1)
 
-        # 通过Transformer（自动处理序列长度）
-        AH_omics = self.TransformerEncoderLayer(CH_omics)  # 输出形状: [batch, 2, num_features]
+        AH_omics = self.TransformerEncoderLayer(CH_omics)
 
-        # 恢复原始维度顺序并拆分
-        AH_omics = AH_omics.permute(0, 2, 1)  # 形状: [batch, num_features, 2]
-        AH_omics1, AH_omics2 = AH_omics.chunk(2, dim=2)  # 沿第三维拆分为两个张量
-        AH_omics1 = AH_omics1.squeeze(2)  # 移除第三维 [batch, num_features]
-        AH_omics2 = AH_omics2.squeeze(2)  # 移除第三维 [batch, num_features]
-
+        AH_omics = AH_omics.permute(0, 2, 1) 
+        AH_omics1, AH_omics2 = AH_omics.chunk(2, dim=2) 
+        AH_omics1 = AH_omics1.squeeze(2)
+        AH_omics2 = AH_omics2.squeeze(2)
+        
         C = torch.mm(self.C1, self.C1.T)
         D_omics1 = self.D_omics1 - torch.diag(torch.diag(self.D_omics1))
         D_omics2 = self.D_omics2 - torch.diag(torch.diag(self.D_omics2))
