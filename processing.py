@@ -72,40 +72,33 @@ def preprocess(adata_omics1, adata_omics2, datatype='10x'):
 
 
 def pca(adata, use_reps=None, n_comps=10):
-    """修改后的PCA函数：保留载荷矩阵、中心化均值，存入adata的uns和varm中"""
     from sklearn.decomposition import PCA
     from scipy.sparse.csc import csc_matrix
     from scipy.sparse.csr import csr_matrix
 
     pca_model = PCA(n_components=n_comps)
 
-    # 1. 提取输入数据（3000维标准化后的基因表达矩阵）
     if use_reps is not None:
         input_data = adata.obsm[use_reps]
     else:
         if isinstance(adata.X, (csc_matrix, csr_matrix)):
             input_data = adata.X.toarray()
         else:
-            input_data = adata.X  # 此时adata.X已完成scale，是3000维标准化后的数据
-
-    # 2. 执行PCA并保留结果
+            input_data = adata.X 
+            
     feat_pca = pca_model.fit_transform(input_data)
 
-    # 3. 存储反向PCA所需的关键参数到adata.uns和varm中
     adata.uns['pca_params'] = {
-        'mean_': pca_model.mean_,  # PCA中心化时使用的均值（3000维，对应每个基因的均值）
-        'components_': pca_model.components_,  # 载荷矩阵（150×3000，每行=1个主成分，每列=1个基因的系数）
+        'mean_': pca_model.mean_,
+        'components_': pca_model.components_,  
         'n_comps': n_comps
     }
-    adata.varm['pca_loadings'] = pca_model.components_.T  # 转置为3000×150，方便后续计算
+    adata.varm['pca_loadings'] = pca_model.components_.T 
 
-    # 4. 存储预处理阶段的关键参数（用于还原基因表达量）
-    # （1）sc.pp.scale的均值和标准差（scale后的数据满足均值=0，标准差=1，需保留原始均值/标准差）
     adata.uns['scale_params'] = {
-        'mean': adata.X.mean(axis=0).reshape(1, -1),  # 3000维，每个基因的原始均值（scale前）
-        'std': adata.X.std(axis=0).reshape(1, -1)  # 3000维，每个基因的原始标准差（scale前）
+        'mean': adata.X.mean(axis=0).reshape(1, -1),  
+        'std': adata.X.std(axis=0).reshape(1, -1) 
     }
-    # （2）sc.pp.log1p的标记（log1p是log(1+x)，反向是expm1(x)）
     adata.uns['preprocess_steps'] = ['normalize_total', 'log1p', 'scale']
 
     return feat_pca
@@ -293,25 +286,20 @@ class LoadBatch10xAdata:
         return self.merged_adata
 
     def calculate_edge_weights(self):
-        # 获取现有的邻接矩阵和节点 embedding
         graph_neigh = self.merged_adata.obsm['graph_neigh']
         node_emb = self.merged_adata.obsm['img_emb']
 
-        # 计算所有节点之间的欧氏距离
         euclidean_distances = cdist(node_emb, node_emb, metric='euclidean')
 
-        # 计算邻边权重矩阵
         edge_weights = np.where(graph_neigh == 1, euclidean_distances, 0)
 
-        # 将邻边权重转换为概率（用 softmax 函数）
         edge_probabilities = np.zeros_like(edge_weights)
         for i in range(edge_weights.shape[0]):
-            # edge_probabilities[i] = softmax(-edge_weights[i]) # 注意：这里用负号，使得距离近的节点具有较低的概率被删除。
+            # edge_probabilities[i] = softmax(-edge_weights[i])
             non_zero_indices = edge_weights[i] != 0
-            non_zero_weights = np.log(edge_weights[i][non_zero_indices] + 1)  # 使用对数函数进行缩放，+1是为了避免对零取对数
+            non_zero_weights = np.log(edge_weights[i][non_zero_indices] + 1)
             softmax_weights = softmax(non_zero_weights)
             edge_probabilities[i][non_zero_indices] = softmax_weights
-        # 将概率矩阵存储到 adata
         self.merged_adata.obsm['edge_probabilities'] = edge_probabilities
 
     def run(self):
