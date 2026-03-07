@@ -1,5 +1,5 @@
 # DGDI
-The source code and input data of DGDI
+The source code and input data of AGDI
 
 ## Requirement
 - torch==2.3.0
@@ -14,7 +14,7 @@ The source code and input data of DGDI
 ## Usage
 #### Clone this repo.
 ```
-git clone https://github.com/LiangSDNULab/DGDI.git
+git clone https://github.com/LiangSDNULab/AGDI.git
 ```
 
 #### Example command
